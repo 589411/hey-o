@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hey-O! 沉浸式英語學習 (完整逐字稿版)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .vocab-highlight { 
+      position: relative; 
+      cursor: pointer; 
+      color: #9333ea; 
+      font-weight: 600; 
+      border-bottom: 2px dashed #9333ea; 
+      transition: all 0.2s;
+    }
+    .vocab-highlight:hover { background-color: #f3e8ff; }
+    .dict-card { 
+      display: none; 
+      position: absolute; 
+      z-index: 50; 
+      width: 250px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+    .dict-card.show { display: block; }
+    
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #c084fc; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9333ea; }
+
+    .recording { animation: pulse 1.5s infinite; color: #ef4444; }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.7; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col md:flex-row overflow-hidden font-sans">
+
+  <!-- 左側：影片區塊 -->
+  <div class="w-full md:w-1/2 h-1/2 md:h-full bg-black flex flex-col">
+    <div class="p-4 bg-white shadow-sm flex items-center gap-3 shrink-0">
+      <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-white">
+        <i class="fa-solid fa-book-bible"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-gray-800 leading-tight">Hey-O! 雙語學習頻道</h1>
+        <p class="text-xs text-gray-500">Israel Worships a Golden Calf</p>
+      </div>
+    </div>
+    <div class="flex-grow w-full h-full">
+      <div id="player" class="w-full h-full"></div>
+    </div>
+  </div>
+
+  <!-- 右側：學習字幕區塊 (由 JS 自動生成) -->
+  <div class="w-full md:w-1/2 h-1/2 md:h-full overflow-y-auto p-6 bg-gray-50">
+    <div id="transcript-container" class="max-w-2xl mx-auto space-y-6">
+      <!-- 文字稿會插在這裡 -->
+    </div>
+  </div>
+
+  <!-- 共用彈出字典卡片 -->
+  <div id="dictPopup" class="dict-card bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="p-4">
+      <div class="flex justify-between items-center mb-2">
+        <h3 id="dictWord" class="text-xl font-bold text-gray-900">Word</h3>
+        <button onclick="playAudio()" class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
+          <i class="fa-solid fa-volume-high"></i>
+        </button>
+      </div>
+      <p id="dictPronounce" class="text-sm text-gray-500 mb-3 border-b pb-3"></p>
+      <p id="dictMeaning" class="text-gray-700 font-medium"></p>
+    </div>
+    <div class="bg-gray-50 px-4 py-2 border-t border-gray-100 text-center">
+      <button onclick="closeDict()" class="text-sm text-gray-500 hover:text-gray-800">關閉</button>
+    </div>
+  </div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    // YouTube 播放器設定
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        videoId: '3XW0yL1bIAM',
+        playerVars: { 'playsinline': 1, 'rel': 0 }
+      });
+    }
+
+    function seekToTime(seconds) {
+      if (player && player.seekTo) {
+        player.seekTo(seconds, true);
+        player.playVideo();
+      }
+    }
+
+    // --- 完整文字稿資料庫 ---
+    const transcripts = [
+      { 
+        time: 0, timeLabel: "00:00", 
+        eng: "Moses was the leader God chose to lead his chosen people, the Israelites, out of Egypt.", 
+        cht: "摩西是上帝選擇的領袖，帶領祂的選民以色列人出埃及。" 
+      },
+      { 
+        time: 15, timeLabel: "00:15", 
+        eng: "After God showed his <span class='vocab-highlight' onclick=\"showDict(event, 'miraculous', 'UK /mɪˈrækjələs/', 'adj. 奇蹟般的')\">miraculous</span> power in Egypt, he led the Israelites through the Red Sea and towards the promised land.", 
+        cht: "在上帝於埃及展現祂神奇的大能之後，祂帶領以色列人穿過紅海，走向應許之地。" 
+      },
+      { 
+        time: 48, timeLabel: "00:48", 
+        eng: "God gave the Israelites a special set of rules called the Ten <span class='vocab-highlight' onclick=\"showDict(event, 'commandment', 'UK /kəˈmɑːndmənt/', 'n. 戒律')\">Commandments</span>.", 
+        cht: "上帝給了以色列人一套特別的規則，稱為十誡。" 
+      },
+      { 
+        time: 95, timeLabel: "01:35", 
+        eng: "The people saw that Moses took a long time to come down from the mountain and they didn't know what happened to him.", 
+        cht: "百姓見摩西遲遲不下山，不知道他發生了什麼事。" 
+      },
+      { 
+        time: 103, timeLabel: "01:43", 
+        eng: "So they <span class='vocab-highlight' onclick=\"showDict(event, 'gather', 'UK /ˈɡæðə(r)/', 'v. 聚集')\">gathered</span> around Aaron and asked him to make a god that could lead them.", 
+        cht: "所以他們聚集在亞倫周圍，要求他造一個能帶領他們的神。" 
+      },
+      { 
+        time: 111, timeLabel: "01:51", 
+        eng: "Aaron told them to give him their gold and he made it into a metal <span class='vocab-highlight' onclick=\"showDict(event, 'statue', 'UK /ˈstætʃuː/', 'n. 雕像')\">statue</span> of a god that looked like a calf.", 
+        cht: "亞倫吩咐他們交出黃金，他將其鑄成一尊形似牛犢的金屬神像。" 
+      },
+      { 
+        time: 126, timeLabel: "02:06", 
+        eng: "Aaron built an altar in front of the calf and declared the next day a feast day.", 
+        cht: "亞倫在牛犢前築了一座壇，並宣告隔日為節期。" 
+      },
+      { 
+        time: 133, timeLabel: "02:13", 
+        eng: "They <span class='vocab-highlight' onclick=\"showDict(event, 'sacrifice', 'UK /ˈsækrɪfaɪs/', 'v. 獻祭')\">sacrificed</span> to the calf, celebrated and danced wildly in front of their God.", 
+        cht: "他們向牛犢獻祭，在他們的神面前慶祝並狂舞。" 
+      },
+      { 
+        time: 188, timeLabel: "03:08", 
+        eng: "As Moses <span class='vocab-highlight' onclick=\"showDict(event, 'approach', 'UK /əˈprəʊtʃ/', 'v. 接近')\">approached</span> the camp he saw the calf and what the people were doing so he was very angry.", 
+        cht: "當摩西接近營地時，他看到了牛犢和百姓所做的事，所以他非常生氣。" 
+      }
+    ];
+
+    // 動態生成文字稿 HTML
+    const container = document.getElementById('transcript-container');
+    transcripts.forEach(item => {
+      const html = `
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div class="flex items-start gap-4">
+          <button onclick="seekToTime(${item.time})" class="shrink-0 bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2">
+            <i class="fa-solid fa-play text-xs"></i> ${item.timeLabel}
+          </button>
+          <div class="space-y-3 w-full">
+            <p class="text-lg text-gray-800 leading-relaxed">${item.eng}</p>
+            <p class="text-gray-500 text-sm">${item.cht}</p>
+            <div class="pt-2 border-t border-gray-100">
+              <button onclick="startSpeaking(this)" class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2 transition-colors">
+                <i class="fa-solid fa-microphone"></i> <span>點擊開始口說練習</span>
+              </button>
+              <div class="speech-result text-sm mt-2 p-3 bg-gray-50 rounded-lg text-gray-700 hidden"></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+      container.innerHTML += html;
+    });
+
+    // --- 單字卡邏輯 ---
+    const popup = document.getElementById('dictPopup');
+    const dictWord = document.getElementById('dictWord');
+    const dictPronounce = document.getElementById('dictPronounce');
+    const dictMeaning = document.getElementById('dictMeaning');
+    let currentWord = '';
+
+    function showDict(event, word, pronounce, meaning) {
+      currentWord = word;
+      dictWord.textContent = word;
+      dictPronounce.textContent = pronounce;
+      dictMeaning.textContent = meaning;
+      
+      const rect = event.target.getBoundingClientRect();
+      const popupWidth = 250;
+      let left = rect.left + window.scrollX;
+      let top = rect.bottom + window.scrollY + 10;
+
+      if (left + popupWidth > window.innerWidth) {
+        left = window.innerWidth - popupWidth - 20;
+      }
+      popup.style.left = `${left}px`;
+      popup.style.top = `${top}px`;
+      popup.classList.add('show');
+      playAudio();
+    }
+
+    function closeDict() { popup.classList.remove('show'); }
+    function playAudio() {
+      if (currentWord) {
+        const msg = new SpeechSynthesisUtterance(currentWord);
+        msg.lang = 'en-US';
+        window.speechSynthesis.speak(msg);
+      }
+    }
+
+    document.addEventListener('click', function(event) {
+      if (!event.target.classList.contains('vocab-highlight') && !popup.contains(event.target)) {
+        closeDict();
+      }
+    });
+
+    // --- 語音辨識 (口說練習) 邏輯 ---
+    function startSpeaking(btn) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("你的瀏覽器不支援語音辨識功能，請使用 Chrome 或 Edge 瀏覽器。");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      const icon = btn.querySelector('i');
+      const textSpan = btn.querySelector('span');
+      const resultDiv = btn.nextElementSibling;
+
+      icon.classList.remove('text-blue-600');
+      icon.classList.add('recording');
+      textSpan.textContent = ' 正在聆聽... (請說話)';
+      resultDiv.classList.add('hidden');
+
+      recognition.start();
+
+      recognition.onresult = (event) => {
+        const speechResult = event.results[0][0].transcript;
+        resultDiv.innerHTML = `<strong>你唸的是：</strong> <span class="text-blue-700">${speechResult}</span>`;
+        resultDiv.classList.remove('hidden');
+      };
+
+      recognition.onspeechend = () => { recognition.stop(); };
+
+      recognition.onend = () => {
+        icon.classList.remove('recording');
+        icon.classList.add('text-blue-600');
+        textSpan.textContent = ' 再次嘗試口說';
+      };
+
+      recognition.onerror = (event) => {
+        resultDiv.innerHTML = `<span class="text-red-500">無法辨識語音 (${event.error})，請檢查麥克風權限。</span>`;
+        resultDiv.classList.remove('hidden');
+      };
+    }
+  </script>
+</body>
+</html>

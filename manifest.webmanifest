@@ -1,0 +1,17 @@
+{
+  "name": "Hey-O! 英聽口說",
+  "short_name": "Hey-O 英聽",
+  "description": "用 Hey-O! 聖經動畫練英聽、跟讀、聽寫與單字",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF8EF",
+  "theme_color": "#FF6B3D",
+  "lang": "zh-Hant",
+  "icons": [
+    {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"icons/icon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ]
+}
