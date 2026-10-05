@@ -1,4 +1,4 @@
-"""把 content/*.json（人工校正過的句子＋中譯＋單字）對齊 tools/timings/<videoId>.json（YouTube 字幕逐字時間）
+"""把 content/<series>/*.json（人工校正過的句子＋中譯＋單字）對齊 tools/timings/<videoId>.json（YouTube 字幕逐字時間）
 產出 data/lessons.json 給前端用。每句得到 t（開始秒）與 end（結束秒）。
 
 用法：python3 tools/build_data.py
@@ -20,9 +20,13 @@ def toks(text):
     return [n for n in (norm(w) for w in re.split(r"[\s\-—–]+", text)) if n]
 
 
-def align(lines, video_id):
-    """把句子對齊字幕逐字時間。回傳每句第一/最後對上的 ms、對上字數、句子字數，與字幕覆蓋率。"""
+def align(lines, video_id, clip=None):
+    """把句子對齊字幕逐字時間。回傳每句第一/最後對上的 ms、對上字數、句子字數，與字幕覆蓋率。
+    clip=(startSec, endSec)：長片切段時只拿這段字幕來對（前後各放寬 2 秒）。"""
     timing = json.load(open(os.path.join(ROOT, 'tools', 'timings', video_id + '.json')))
+    if clip:
+        lo, hi = (clip[0] - 2) * 1000, (clip[1] + 2) * 1000
+        timing = [x for x in timing if lo <= x[0] <= hi]
     cap = []  # (ms, token)
     for ms, w in timing:
         for t in toks(w):
@@ -59,11 +63,12 @@ def align(lines, video_id):
 def build_lesson(path):
     les = json.load(open(path))
     lines = les['lines']
-    al = align(lines, les['videoId'])
+    clip = (les['clipStart'], les['clipEnd']) if 'clipStart' in les else None
+    al = align(lines, les['videoId'], clip)
     timing, first, last, matched = al['timing'], al['first'], al['last'], al['matched']
 
     total_words = al['total_words']
-    dur = les.get('duration') or (timing[-1][0] / 1000 + 3)
+    dur = clip[1] if clip else (les.get('duration') or (timing[-1][0] / 1000 + 3))
     out = []
     for i, (en, zh, vocab) in enumerate(lines):
         ratio = matched[i] / max(1, total_words[i])
@@ -88,7 +93,7 @@ def build_lesson(path):
         o['end'] = round(min(max(end_guess, o['t'] + 1.0), nxt), 2)
         o['t'] = round(max(0, o['t'] - 0.15), 2)
     les['lines'] = out
-    les['duration'] = round(dur)
+    les['duration'] = round(dur - clip[0]) if clip else round(dur)
     return les
 
 
@@ -103,15 +108,28 @@ def bible_order(les):
     return (idx, int(m.group(2)) if m and m.group(2) else 0)
 
 
+def load_series():
+    return json.load(open(os.path.join(ROOT, 'content', 'series.json')))
+
+
 def main():
+    series = load_series()
     lessons = []
-    for p in sorted(glob.glob(os.path.join(ROOT, 'content', '*.json'))):
-        print('▸', os.path.basename(p))
-        lessons.append(build_lesson(p))
-    lessons.sort(key=bible_order)
+    for se in series:
+        group = []
+        for p in sorted(glob.glob(os.path.join(ROOT, 'content', se['id'], '*.json'))):
+            print('▸', se['id'] + '/' + os.path.basename(p))
+            les = build_lesson(p)
+            les['series'] = se['id']
+            group.append(les)
+        if se.get('order') == 'bible':
+            group.sort(key=bible_order)   # 其他系列照檔名（content/<series>/NN-…）排序
+        se['count'] = len(group)
+        lessons += group
     dst = os.path.join(ROOT, 'data', 'lessons.json')
-    json.dump({'version': 1, 'lessons': lessons}, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
-    print(f'✓ {len(lessons)} 課、{sum(len(l["lines"]) for l in lessons)} 句 → data/lessons.json')
+    pub = [{k: v for k, v in se.items() if not k.startswith('min') and k != 'channel'} for se in series]
+    json.dump({'version': 2, 'series': pub, 'lessons': lessons}, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
+    print(f'✓ {len(series)} 系列、{len(lessons)} 課、{sum(len(l["lines"]) for l in lessons)} 句 → data/lessons.json')
 
 
 if __name__ == '__main__':

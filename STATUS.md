@@ -15,10 +15,12 @@
 
 - 2026-10-05：跟讀加保險（靜默 1.5s 自動評分、8s 沒出聲結束、依句長最長時限、iOS onend 不回的 watchdog、可手動按「說完了」），用模擬辨識器驗證三種情境皆通過；sw v4。
 
+- 2026-10-05：新增第二系列「Bill Johnson 講道」（進階）。content 改成 `content/<series>/` + `content/series.json`；講道依 YouTube 章節自動切 3–6 分鐘一段（clipStart/clipEnd 只播該段）。agy 做了 13 課（完整講道「每天如何聆聽神的聲音」9 段＋短片「憂慮如何扼殺神的應許」＋「容易被冒犯的危險」3 段），全部吻合度 97–99%。現共 2 系列 27 課 1038 句。修了 bump_sw 會清空 index.html 的 bug（未上線前抓到）；css/js 加 ?v= 與 SW 同步升版。
+
 ## 卡在哪
 - 「Stories from Genesis」(K6IA0Uj1JdY) 抓字幕一直 429，暫未收錄（內容與亞當夏娃/挪亞重疊）。
 - 影片播放在自動化瀏覽器（背景視窗）無法實測；需在手機/桌機實際點播驗證：句子高亮跟隨、單句自動停、循環。
 
 ## 下一個具體動作
 1. 開 https://hey-o.launchdock.app 實測 iPhone Safari：點句播放、跟讀語音評分（麥克風權限）、加入主畫面。
-2. 繼續擴充：`python3 tools/add_lesson.py --list` 挑還沒收錄的單集 → `add_lesson.py <id…> --keep-going` → 抽查翻譯 → push。yt-dlp 目前在 scratchpad venv，正式用請 `brew install yt-dlp`。
+2. 繼續擴充：`python3 tools/add_lesson.py --series <heyo|bill-johnson> --list` 挑還沒收錄的單集 → `add_lesson.py --series … <id…> --keep-going`（講道先 `--plan` 看切段） → 抽查翻譯 → push。yt-dlp 目前在 scratchpad venv，正式用請 `brew install yt-dlp`。

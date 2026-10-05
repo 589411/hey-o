@@ -347,3 +347,20 @@ main { max-width: 1180px; margin: 0 auto; padding: 16px 16px 120px; }
   .target { font-size: 20px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ---------- Series switcher ---------- */
+.series { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 8px; }
+.series-card {
+  display: flex; flex-direction: column; gap: 2px; text-decoration: none; padding: 12px 14px;
+  background: var(--surface); border: 2px solid transparent; border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.series-card b { font-size: 16.5px; font-weight: 900; line-height: 1.25; }
+.series-card small { color: var(--ink-3); font-size: 12.5px; font-weight: 700; }
+.series-card[aria-selected="true"] { border-color: var(--brand); }
+.lvl { align-self: flex-start; font-size: 11.5px; font-weight: 900; padding: 1px 8px; border-radius: 999px; margin-bottom: 2px; }
+.lvl-easy { background: var(--good-soft); color: var(--good); }
+.lvl-hard { background: var(--brand-soft); color: var(--brand); }
+.series-blurb { color: var(--ink-2); font-size: 14px; margin: 0 0 16px; }
+.card .sum { color: var(--ink-2); font-size: 13px; line-height: 1.45; margin-top: 4px; }
+.lesson-head .part-title { color: var(--brand); font-weight: 900; font-size: 17px; margin: 2px 0 0; }
+.lesson-head .summary { color: var(--ink-2); font-size: 14px; background: var(--surface-2); border-radius: 10px; padding: 6px 10px; margin-top: 8px; }

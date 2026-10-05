@@ -168,7 +168,8 @@
       if (this.lesson !== lesson) return;
       this.yt = new YT.Player('player', {
         videoId: lesson.videoId,
-        playerVars: { playsinline: 1, rel: 0, modestbranding: 1, cc_load_policy: 0, iv_load_policy: 3 },
+        playerVars: { playsinline: 1, rel: 0, modestbranding: 1, cc_load_policy: 0, iv_load_policy: 3,
+          ...(lesson.clipStart != null ? { start: Math.floor(lesson.clipStart), end: Math.ceil(lesson.clipEnd) } : {}) },
         events: {
           onReady: () => { this.ready = true; this.setRate(store.prefs.rate); },
           onStateChange: e => { renderPlayBtn(); if (e.data === 1) this.startTimer(); }
@@ -185,7 +186,12 @@
     setRate(r) { store.prefs.rate = r; save(); if (this.ready) this.yt.setPlaybackRate(r); },
     toggle() {
       if (!this.ready) return toast('影片載入中…');
-      if (this.playing()) this.yt.pauseVideo(); else { this.stopAt = null; this.yt.playVideo(); this.nudge(); }
+      if (this.playing()) { this.yt.pauseVideo(); return; }
+      this.stopAt = null;
+      // 講道片段：不在本段範圍內就從本段第一句開始
+      const L = this.lesson, t = this.time();
+      if (L.clipStart != null && (t < L.clipStart - 1 || t >= L.clipEnd - 0.5)) this.yt.seekTo(L.lines[0].t, true);
+      this.yt.playVideo(); this.nudge();
     },
     /** 播單句，句尾自動停 */
     playLine(i, { rate } = {}) {
@@ -206,6 +212,7 @@
     lineAt(t) {
       const ls = this.lesson.lines; let k = -1;
       for (let i = 0; i < ls.length; i++) { if (ls[i].t <= t + 0.05) k = i; else break; }
+      if (k === ls.length - 1 && t > ls[k].end + 2) return -1;  // 已超出本段
       return k;
     },
     startTimer() {
@@ -221,6 +228,7 @@
           const L = this.lesson.lines[this.loopIdx];
           if (t >= L.end || t < L.t - 1) this.yt.seekTo(L.t, true);
         }
+        if (this.lesson.clipEnd != null && !this.stopAt && this.loopIdx == null && t >= this.lesson.clipEnd) this.yt.pauseVideo();
         const k = this.lineAt(t);
         if (k !== this.cur) { this.cur = k; this.onTick && this.onTick(k); }
         if (!this.playing() && !this.stopAt) { clearInterval(this.timer); this.timer = null; }
@@ -336,48 +344,76 @@
   let view = { name: '', lessonId: null, mode: 'listen' };
   const currentLesson = () => view.lessonId && lessonById(view.lessonId);
 
+  // ---- 系列與課程顯示名稱 ----
+  const seriesOf = L => DATA.series.find(se => se.id === L.series) || DATA.series[0];
+  const seriesLessons = sid => DATA.lessons.filter(l => l.series === sid);
+  const lessonNo = L => seriesLessons(L.series).indexOf(L) + 1;
+  const isSermon = L => L.part != null;
+  /** 卡片/標題用：{ main 主標, sub 副標, badge 角標 } */
+  function names(L) {
+    if (isSermon(L) && L.parts === 1) return {  // 官方短片：整支就一段
+      main: L.titleZh, sub: L.partTitleZh, badge: `第 ${lessonNo(L)} 課`, head: L.titleZh, headSub: L.title
+    };
+    if (isSermon(L)) return {
+      main: L.partTitleZh, sub: `${L.titleZh}・第 ${L.part}/${L.parts} 段`, badge: `第 ${lessonNo(L)} 課`,
+      head: `${L.titleZh}・第 ${L.part}/${L.parts} 段`, headSub: `${L.title}${L.partTitle ? '・' + L.partTitle : ''}`
+    };
+    return { main: L.titleZh, sub: L.title, badge: `第 ${lessonNo(L)} 課`, head: `第 ${lessonNo(L)} 課・${L.titleZh}`, headSub: L.title };
+  }
+  const curSeries = () => DATA.series.find(se => se.id === store.prefs.series) || DATA.series[0];
+
   function renderHome() {
     P.destroy();
     const last = store.last && lessonById(store.last.id);
-    const totalLines = DATA.lessons.reduce((a, l) => a + l.lines.length, 0);
+    const se = curSeries();
+    const list = seriesLessons(se.id);
+    const totalLines = list.reduce((a, l) => a + l.lines.length, 0);
     app.innerHTML = `
       <section class="hero">
-        <h1>跟著 <em>Hey-O!</em> 動畫<br>練英聽、開口說</h1>
-        <p>${DATA.lessons.length} 個聖經故事、${totalLines} 句真實逐字稿，一句一句聽懂、跟讀、寫下來。</p>
+        <h1>用 YouTube<br><em>練英聽、開口說</em></h1>
+        <p>真實影片＋逐句對齊的字幕：一句一句聽懂、跟讀、寫下來。</p>
       </section>
       ${last ? `
       <a class="continue" href="#/l/${last.id}/${store.last.mode || 'listen'}">
         <img src="https://i.ytimg.com/vi/${last.videoId}/mqdefault.jpg" alt="">
-        <div><div class="k">繼續上次</div><div class="t">${esc(last.titleZh)}</div><div class="s">第 ${(store.last.idx || 0) + 1} 句・${Math.round(lessonProgress(last) * 100)}% 完成</div></div>
+        <div><div class="k">繼續上次・${esc(seriesOf(last).title)}</div><div class="t">${esc(names(last).main)}</div><div class="s">第 ${(store.last.idx || 0) + 1} 句・${Math.round(lessonProgress(last) * 100)}% 完成</div></div>
         <span class="go">→</span>
       </a>` : ''}
+      <div class="series" role="tablist" aria-label="系列">
+        ${DATA.series.map(x => `<a class="series-card" role="tab" href="#/s/${x.id}" aria-selected="${x.id === se.id}">
+          <span class="lvl lvl-${x.level === '入門' ? 'easy' : 'hard'}">${esc(x.level)}</span>
+          <b>${esc(x.title)}</b><small>${x.count} 課</small>
+        </a>`).join('')}
+      </div>
+      <p class="series-blurb">${esc(se.blurb)}</p>
       <div class="steps" aria-label="學習四步驟">
         <div class="step"><b>🎧</b><span>1 盲聽</span><small>先蓋住字幕<br>抓大意</small></div>
         <div class="step"><b>📖</b><span>2 對照</span><small>看中英文<br>查生字</small></div>
         <div class="step"><b>🗣️</b><span>3 跟讀</span><small>一句一句<br>說到 80 分</small></div>
         <div class="step"><b>✍️</b><span>4 聽寫</span><small>聽到就能<br>寫得出來</small></div>
       </div>
-      <div class="section-title"><h2>課程</h2><span>依聖經順序</span></div>
-      <div class="grid">
-        ${DATA.lessons.map((l, i) => {
-          const pr = lessonProgress(l);
+      <div class="section-title"><h2>${esc(se.title)}</h2><span>${list.length} 課・${totalLines} 句${se.order === 'bible' ? '・依聖經順序' : ''}</span></div>
+      ${list.length ? `<div class="grid">
+        ${list.map(l => {
+          const pr = lessonProgress(l), n = names(l);
           return `<a class="card" href="#/l/${l.id}">
             <div class="thumb">
               <img loading="lazy" src="https://i.ytimg.com/vi/${l.videoId}/mqdefault.jpg" alt="">
-              <span class="num">第 ${i + 1} 課</span>
+              <span class="num">${n.badge}</span>
               ${pr >= 0.999 ? '<span class="done-badge">✓ 完成</span>' : ''}
               <span class="dur">${fmt(l.duration)}</span>
             </div>
             <div class="body">
-              <div class="zh">${esc(l.titleZh)}</div>
-              <div class="en">${esc(l.title)}</div>
-              <div class="meta"><span>📖 ${esc(l.ref)}</span><span>${l.lines.length} 句</span><span>${l.lines.reduce((a, x) => a + x.vocab.length, 0)} 字</span></div>
+              <div class="zh">${esc(n.main)}</div>
+              <div class="en">${esc(n.sub)}</div>
+              ${l.summaryZh ? `<div class="sum">${esc(l.summaryZh)}</div>` : ''}
+              <div class="meta">${l.ref ? `<span>📖 ${esc(l.ref)}</span>` : ''}<span>${l.lines.length} 句</span><span>${l.lines.reduce((a, x) => a + x.vocab.length, 0)} 字</span></div>
               <div class="bar"><i style="width:${Math.round(pr * 100)}%"></i></div>
             </div>
           </a>`;
         }).join('')}
-      </div>
-      <p class="footer-note">影片來源：<a href="https://www.youtube.com/@SaddlebackKids" target="_blank" rel="noopener">Saddleback Kids</a>《Hey-O! Stories of the Bible》，本站僅嵌入 YouTube 播放。<br>逐字稿由 YouTube 字幕校對而成，中文翻譯與單字為自編學習用。<br>學習進度只存在這台裝置。</p>`;
+      </div>` : '<div class="empty"><b>🛠️</b>這個系列的課程準備中</div>'}
+      <p class="footer-note">影片來源：<a href="${esc(se.creditUrl)}" target="_blank" rel="noopener">${esc(se.credit)}</a>《${esc(se.titleEn)}》，本站僅嵌入 YouTube 播放。<br>逐字稿由 YouTube 字幕校對而成，中文翻譯與單字為自編學習用。<br>學習進度只存在這台裝置。</p>`;
   }
 
   function renderWords() {
@@ -433,7 +469,7 @@
           <button class="round ${on ? 'on' : ''}" data-v="star" aria-label="收藏">${on ? ICON.star : ICON.starO}</button>
         </div>
         <div class="m"><span class="pos">${esc(v.pos)}</span>${esc(v.zh)}</div>
-        ${L ? `<div class="src" data-v="go">${showLesson ? `${esc(L.titleZh)}・` : ''}「${esc(L.lines[v.li].en.slice(0, 60))}${L.lines[v.li].en.length > 60 ? '…' : ''}」</div>` : ''}
+        ${L ? `<div class="src" data-v="go">${showLesson ? `${esc(names(L).main)}・` : ''}「${esc(L.lines[v.li].en.slice(0, 60))}${L.lines[v.li].en.length > 60 ? '…' : ''}」</div>` : ''}
       </div>`;
     }).join('')}</div>`;
   }
@@ -469,15 +505,17 @@
     const p = lp(id);
     store.last = { id, mode, idx: p.last || 0 }; save();
     if (!sameLesson) {
-      const num = DATA.lessons.indexOf(L) + 1;
+      const n = names(L);
       app.innerHTML = `
         <div class="lesson">
           <div class="left">
-            <a href="#/" class="back">${ICON.back} 所有課程</a>
+            <a href="#/s/${L.series}" class="back">${ICON.back} ${esc(seriesOf(L).title)}</a>
             <div class="video-sticky"><div class="video-wrap"><div id="player"></div></div></div>
             <div class="lesson-head">
-              <h1>第 ${num} 課・${esc(L.titleZh)}</h1>
-              <p>${esc(L.title)}・📖 ${esc(L.ref)}</p>
+              <h1>${esc(n.head)}</h1>
+              ${isSermon(L) && L.parts > 1 ? `<p class="part-title">${esc(L.partTitleZh)}</p>` : ''}
+              <p>${esc(n.headSub)}${L.ref ? `・📖 ${esc(L.ref)}` : ''}</p>
+              ${L.summaryZh ? `<p class="summary">💡 ${esc(L.summaryZh)}</p>` : ''}
             </div>
           </div>
           <div class="right">
@@ -766,6 +804,7 @@
       window.scrollTo({ top: 0 });
       return;
     }
+    if (h[0] === 's' && h[1] && DATA.series.some(se => se.id === h[1])) { store.prefs.series = h[1]; save(); }
     view = { name: h[0] === 'words' ? 'words' : 'home' };
     app.onclick = null;
     if (h[0] === 'words') renderWords(); else renderHome();

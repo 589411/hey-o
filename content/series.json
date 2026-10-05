@@ -1,0 +1,27 @@
+[
+  {
+    "id": "heyo",
+    "title": "Hey-O! 聖經動畫",
+    "titleEn": "Hey-O! Stories of the Bible",
+    "level": "入門",
+    "blurb": "2–4 分鐘的兒童聖經動畫，語速慢、用字簡單，適合從零開始練耳朵。",
+    "credit": "Saddleback Kids",
+    "creditUrl": "https://www.youtube.com/@SaddlebackKids",
+    "order": "bible",
+    "minFidelity": 0.90,
+    "minCoverage": 0.85
+  },
+  {
+    "id": "bill-johnson",
+    "title": "Bill Johnson 講道",
+    "titleEn": "Bill Johnson · Bethel Church, Redding",
+    "level": "進階",
+    "blurb": "雷丁伯特利教會主任牧師的主日講道，真實語速、口語與幽默，一段 3–6 分鐘。",
+    "credit": "Bill Johnson Teaching (Official)",
+    "creditUrl": "https://www.youtube.com/channel/UCspy9Ay2Z9VI__qS7Fdbs6Q",
+    "channel": "https://www.youtube.com/channel/UCspy9Ay2Z9VI__qS7Fdbs6Q/videos",
+    "order": "manual",
+    "minFidelity": 0.85,
+    "minCoverage": 0.80
+  }
+]
