@@ -230,20 +230,47 @@
 
   // ---------- speech recognition ----------
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let rec = null;
-  function listen({ onResult, onEnd, onError }) {
-    if (rec) { try { rec.stop(); } catch { } return; }
-    if (!onEnd) return;
-    rec = new SR(); rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
-    let finalText = '';
-    rec.onresult = e => {
-      let txt = '';
-      for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript + ' ';
-      finalText = txt.trim(); onResult(finalText, false);
+  let rec = null;      // 目前的辨識 session：{ r, stop(), abort() }
+  const SILENCE_MS = 1500;   // 講完後靜默多久就自動評分
+  const NO_SPEECH_MS = 8000; // 一直沒出聲就結束
+  const WATCHDOG_MS = 2000;  // stop() 後瀏覽器遲遲不回 onend（iOS 偶發）就強制收尾
+  /** 語音辨識，附保險：靜默自動結束、最長時限、強制收尾。onEnd 保證只會被呼叫一次。 */
+  function listen({ onResult, onEnd, onError, maxMs = 20000 }) {
+    if (rec) { rec.stop(); return; }
+    const r = new SR(); r.lang = 'en-US'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
+    let text = '', done = false, stopping = false;
+    const timers = {};
+    const clear = () => Object.values(timers).forEach(clearTimeout);
+    const finish = () => {
+      if (done) return; done = true; clear();
+      if (rec && rec.r === r) rec = null;
+      onEnd(text);
     };
-    rec.onerror = e => { onError && onError(e.error); };
-    rec.onend = () => { rec = null; onEnd(finalText); };
-    try { rec.start(); } catch (e) { rec = null; onError && onError(String(e)); }
+    const stop = () => {
+      if (done || stopping) return; stopping = true;
+      try { r.stop(); } catch { }
+      timers.watch = setTimeout(() => { try { r.abort(); } catch { } finish(); }, WATCHDOG_MS);
+    };
+    const abort = () => { onError = null; try { r.abort(); } catch { } text = ''; finish(); };
+    rec = { r, stop, abort };
+    r.onresult = e => {
+      if (done) return;  // 已收尾（watchdog/abort）後才到的結果不要蓋掉分數
+      const parts = [];
+      for (let i = 0; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript.trim();
+        // iOS 有時把「越來越長的同一句」放在不同 index，只留最長的那個
+        if (parts.length && t.startsWith(parts[parts.length - 1])) parts[parts.length - 1] = t; else if (t) parts.push(t);
+      }
+      text = parts.join(' ').trim();
+      onResult && onResult(text);
+      clearTimeout(timers.noSpeech); clearTimeout(timers.silence);
+      timers.silence = setTimeout(stop, SILENCE_MS);
+    };
+    r.onerror = e => { if (e.error !== 'aborted' && onError) onError(e.error); stop(); };
+    r.onend = finish;
+    timers.noSpeech = setTimeout(stop, NO_SPEECH_MS);
+    timers.max = setTimeout(stop, maxMs);
+    try { r.start(); } catch (e) { onError && onError(String(e.message || e)); finish(); }
   }
   // 不支援辨識（例如 Firefox）時：錄音後自己聽
   let mediaRec = null, lastBlobUrl = null;
@@ -626,10 +653,11 @@
       if (a.dataset.a === 'speak') {
         if (P.playing()) P.yt.pauseVideo();
         if (!SR) return recordSelf(btn, res);
-        if (btn.classList.contains('recording')) { listen({}); return; }
-        btn.classList.add('recording'); btn.innerHTML = `${ICON.mic} 聆聽中…說完會自動評分`;
+        if (btn.classList.contains('recording')) { if (rec) rec.stop(); return; }
+        btn.classList.add('recording'); btn.innerHTML = `${ICON.mic} 聆聽中…說完了點這裡評分`;
         res.hidden = false; res.innerHTML = '<div class="heard">請對著麥克風唸出上面的句子</div>';
         listen({
+          maxMs: Math.min(25000, 6000 + x.en.split(/\s+/).length * 700),  // 依句長給時間
           onResult: txt => { res.innerHTML = `<div class="heard">聽到：<b>${esc(txt)}</b></div>`; },
           onError: err => {
             const msg = { 'not-allowed': '麥克風權限被拒絕，請到瀏覽器設定允許', 'no-speech': '沒有聽到聲音，再試一次', 'network': '語音辨識需要網路連線', 'audio-capture': '找不到麥克風' }[err] || `辨識失敗（${err}）`;
@@ -637,7 +665,10 @@
           },
           onEnd: txt => {
             btn.classList.remove('recording'); btn.innerHTML = `${ICON.mic} 再說一次`;
-            if (!txt) return;
+            if (!txt) {
+              if (!res.querySelector('[style*="--bad"]')) res.innerHTML = '<div class="heard" style="color:var(--bad)">沒有聽到聲音，再按一次「再說一次」試試</div>';
+              return;
+            }
             const cmp = compare(x.en, txt);
             const best = Math.max(scores[i] || 0, cmp.score); scores[i] = best; save(); bumpToday();
             $('.target', el).outerHTML = wordsHtml(cmp);
@@ -726,7 +757,7 @@
   // ---------- router ----------
   function route() {
     closeSheet();
-    if (rec) { try { rec.abort(); } catch { } }
+    if (rec) rec.abort();
     const h = location.hash.replace(/^#\/?/, '').split('/');
     if (h[0] === 'l' && h[1]) {
       const mode = MODES.some(m => m.id === h[2]) ? h[2] : 'listen';
