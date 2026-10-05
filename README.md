@@ -19,20 +19,27 @@ content/NN-<id>.json                   ← 每課人工校對的句子＋中譯�
 tools/timings/<videoId>.json           ← YouTube 自動字幕的逐字時間軸
 tools/build_data.py                    ← 把 content 句子對齊 timings，算出每句 t/end
 tools/extract_timings.py               ← json3 字幕 → timings
+tools/add_lesson.py                    ← 擴充課程（yt-dlp 抓字幕 + agy 整理翻譯 + 驗證）
 tools/make_icons.py                    ← 產生 App 圖示
 sw.js  manifest.webmanifest  CNAME     PWA + GitHub Pages
 docs/gemini-draft/                     ← 最初 Gemini 草稿（僅供參考，內容有誤）
 ```
 
-## 新增一課
-1. 抓字幕（yt-dlp，ios client 才拿得到）：
-   ```
-   yt-dlp --extractor-args "youtube:player_client=ios" --ignore-no-formats-error --skip-download \
-     --write-auto-subs --sub-langs en --sub-format json3 -o "%(id)s" "https://www.youtube.com/watch?v=<ID>"
-   python3 tools/extract_timings.py <ID>.en.json3
-   ```
-2. 寫 `content/NN-<id>.json`：`lines` 每句 `[英文, 中文, [[原形於句中, lemma, 詞性, 音標, 中譯], ...]]`
-3. `python3 tools/build_data.py`（對齊率低會印 ⚠）
-4. `sw.js` 的 `CACHE` 升版，commit & push
+## 擴充課程（yt-dlp + agy）
+```
+python3 tools/add_lesson.py --list                    # 頻道上還沒收錄的單集（✓ = 已收錄）
+python3 tools/add_lesson.py <videoId> [<videoId>…] --keep-going
+python3 tools/add_lesson.py <videoId> --model "Claude Opus 4.6 (Thinking)"   # 換 agy 模型
+```
+分工：
+1. **yt-dlp（確定性）**：驗證影片 ID、頻道、可否嵌入；抓英文自動字幕的逐字時間 → `tools/timings/`
+2. **agy（LLM）**：把無標點字幕整理成句子、校正人名、譯成台灣繁中（和合本譯名）、挑單字＋音標
+3. **程式驗證**：英文與字幕吻合度 ≥ 90%、字幕覆蓋率 ≥ 85%、每句 ≥ 50%、單字必須出現在句中；沒過會把錯誤回饋給 agy 重試一次，再沒過就不寫入
+4. 寫 `content/NN-<id>.json` → 重建 `data/lessons.json`（依聖經書卷自動排序）→ `sw.js` CACHE 升版
+
+**為什麼不讓 agy 直接「抓 YouTube 字幕」**：LLM 會編影片 ID、時間碼與句子（Gemini 初稿就這樣）。抓取交給工具、理解交給 LLM、把關交給程式。
+
+需要 `yt-dlp`（`brew install yt-dlp`，或 `YTDLP=/path/to/yt-dlp`）與已登入的 `agy`。YouTube 連抓會 429，腳本會自動退避重試。
+新增後請人工抽查翻譯再 commit。
 
 影片版權屬 Saddleback Kids，本站僅以 YouTube 官方嵌入播放。

@@ -20,10 +20,9 @@ def toks(text):
     return [n for n in (norm(w) for w in re.split(r"[\s\-—–]+", text)) if n]
 
 
-def build_lesson(path):
-    les = json.load(open(path))
-    tpath = os.path.join(ROOT, 'tools', 'timings', les['videoId'] + '.json')
-    timing = json.load(open(tpath))
+def align(lines, video_id):
+    """把句子對齊字幕逐字時間。回傳每句第一/最後對上的 ms、對上字數、句子字數，與字幕覆蓋率。"""
+    timing = json.load(open(os.path.join(ROOT, 'tools', 'timings', video_id + '.json')))
     cap = []  # (ms, token)
     for ms, w in timing:
         for t in toks(w):
@@ -31,7 +30,6 @@ def build_lesson(path):
     cap_toks = [t for _, t in cap]
 
     # 全文 token 序列，記下每個 token 屬於哪一句
-    lines = les['lines']
     doc, owner = [], []
     for i, (en, *_rest) in enumerate(lines):
         for t in toks(en):
@@ -42,17 +40,29 @@ def build_lesson(path):
     first = [None] * len(lines)   # 每句第一個對上的字的 ms
     last = [None] * len(lines)
     matched = [0] * len(lines)
+    cap_hit = 0
     for a, b, size in sm.get_matching_blocks():
+        cap_hit += size
         for k in range(size):
             i = owner[a + k]
             ms = cap[b + k][0]
-            # 句首字若被跳過，用第一個對上的字往前推一點
             if first[i] is None:
                 first[i] = ms
             last[i] = ms
             matched[i] += 1
-
     total_words = [len(toks(l[0])) for l in lines]
+    return {'timing': timing, 'first': first, 'last': last, 'matched': matched,
+            'total_words': total_words, 'caption_coverage': cap_hit / max(1, len(cap_toks)),
+            'text_fidelity': sum(matched) / max(1, sum(total_words))}
+
+
+def build_lesson(path):
+    les = json.load(open(path))
+    lines = les['lines']
+    al = align(lines, les['videoId'])
+    timing, first, last, matched = al['timing'], al['first'], al['last'], al['matched']
+
+    total_words = al['total_words']
     dur = les.get('duration') or (timing[-1][0] / 1000 + 3)
     out = []
     for i, (en, zh, vocab) in enumerate(lines):
@@ -82,11 +92,23 @@ def build_lesson(path):
     return les
 
 
+BOOKS = '創世記 出埃及記 利未記 民數記 申命記 約書亞記 士師記 路得記 撒母耳記上 撒母耳記下 列王紀上 列王紀下 歷代志上 歷代志下 以斯拉記 尼希米記 以斯帖記 約伯記 詩篇 箴言 傳道書 雅歌 以賽亞書 耶利米書 耶利米哀歌 以西結書 但以理書 何西阿書 約珥書 阿摩司書 俄巴底亞書 約拿書 彌迦書 那鴻書 哈巴谷書 西番雅書 哈該書 撒迦利亞書 瑪拉基書 馬太福音 馬可福音 路加福音 約翰福音 使徒行傳 羅馬書 哥林多前書 哥林多後書 加拉太書 以弗所書 腓立比書 歌羅西書 帖撒羅尼迦前書 帖撒羅尼迦後書 提摩太前書 提摩太後書 提多書 腓利門書 希伯來書 雅各書 彼得前書 彼得後書 約翰一書 約翰二書 約翰三書 猶大書 啟示錄'.split()
+
+
+def bible_order(les):
+    """依 ref（例：「出埃及記 32–34」）排聖經順序；認不得的排最後。"""
+    m = re.match(r'(\S+)\s*(\d+)?', les.get('ref', ''))
+    book = m.group(1) if m else ''
+    idx = BOOKS.index(book) if book in BOOKS else len(BOOKS)
+    return (idx, int(m.group(2)) if m and m.group(2) else 0)
+
+
 def main():
     lessons = []
     for p in sorted(glob.glob(os.path.join(ROOT, 'content', '*.json'))):
         print('▸', os.path.basename(p))
         lessons.append(build_lesson(p))
+    lessons.sort(key=bible_order)
     dst = os.path.join(ROOT, 'data', 'lessons.json')
     json.dump({'version': 1, 'lessons': lessons}, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
     print(f'✓ {len(lessons)} 課、{sum(len(l["lines"]) for l in lessons)} 句 → data/lessons.json')
