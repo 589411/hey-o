@@ -381,7 +381,7 @@
       </a>` : ''}
       <div class="series" role="tablist" aria-label="系列">
         ${DATA.series.map(x => `<a class="series-card" role="tab" href="#/s/${x.id}" aria-selected="${x.id === se.id}">
-          <span class="lvl lvl-${x.level === '入門' ? 'easy' : 'hard'}">${esc(x.level)}</span>
+          <span class="lvl lvl-t${x.tier || 1}">${esc(x.level)}</span>
           <b>${esc(x.title)}</b><small>${x.count} 課</small>
         </a>`).join('')}
       </div>

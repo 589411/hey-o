@@ -33,12 +33,28 @@ SERIES_RULES = {
     'heyo': {
         'channel': 'https://www.youtube.com/@SaddlebackKids/videos',
         'list_re': r'Stories of the Bible\s*$', 'list_skip': r'Church at Home|Available Now|Book Release',
-        'author': 'Saddleback', 'segment': False, 'max_bad_lines': 0,
+        'author': 'Saddleback', 'segment': False, 'max_bad_lines': 0, 'prompt': 'heyo', 'required': ['ref'],
+    },
+    'odb': {
+        'channel': 'https://www.youtube.com/@ourdailybread/videos',
+        'list_re': r'Our Daily Bread Video Devotional', 'list_skip': r'#shorts',
+        'author': 'Our Daily Bread', 'segment': False, 'max_bad_lines': 1, 'prompt': 'short', 'required': ['ref', 'summaryZh'],
+        'vocab_level': 'intermediate (B1)',
+    },
+    'billy-graham': {
+        'channel': 'https://www.youtube.com/@billygraham/videos',
+        'list_re': r'Billy Graham Classic Sermon', 'list_skip': r'#shorts',
+        'author': 'Billy Graham', 'segment': True, 'max_bad_lines': 2,
+        'min_seg': 150, 'max_seg': 420, 'target_seg': 300,   # 章節很碎（~1.5 分），併成 3–5 分一課
+        'level_word': 'INTERMEDIATE', 'speaker': 'evangelist Billy Graham (a classic crusade sermon, slow and plain English)',
+        'vocab_level': 'intermediate (B1–B2)',
     },
     'bill-johnson': {
         'channel': 'https://www.youtube.com/channel/UCspy9Ay2Z9VI__qS7Fdbs6Q/videos',
         'list_re': r'Bill Johnson', 'list_skip': r'#shorts|Live Stream|Worship',
         'author': 'Bill Johnson', 'segment': True, 'max_bad_lines': 3,
+        'level_word': 'ADVANCED', 'speaker': 'Pastor Bill Johnson (Bethel Church, Redding, California)',
+        'vocab_level': 'upper-intermediate (B2–C1)',
         'min_seg': 90, 'max_seg': 420, 'target_seg': 300,
     },
 }
@@ -96,9 +112,12 @@ def fetch_captions(vid):
         if os.path.exists(sub) and os.path.exists(info):
             return sub, json.load(open(info))
         r = subprocess.run([YTDLP, '--extractor-args', 'youtube:player_client=ios', '--ignore-no-formats-error',
-                            '--skip-download', '--write-subs', '--write-auto-subs', '--sub-langs', 'en',
+                            '--skip-download', '--write-subs', '--write-auto-subs', '--sub-langs', 'en,en-US',
                             '--sub-format', 'json3', '--write-info-json', '-o', os.path.join(CACHE, '%(id)s'),
                             f'https://www.youtube.com/watch?v={vid}'], capture_output=True, text=True)
+        us = os.path.join(CACHE, f'{vid}.en-US.json3')
+        if not os.path.exists(sub) and os.path.exists(us):
+            os.replace(us, sub)
         if os.path.exists(sub) and os.path.exists(info):
             return sub, json.load(open(info))
         if '429' in r.stdout + r.stderr:
@@ -164,6 +183,7 @@ def snap(words, a, b):
 
 # ---------- 2. agy（LLM） ----------
 COMMON_RULES = """Output ONLY one JSON object, no markdown fences, no commentary. Do NOT use any tools or read/write any files.
+- If the caption text is in ALL CAPS, write normal sentence case (proper nouns capitalized).
 - "zh": natural Traditional Chinese as used in Taiwan. Bible names/places and quoted scripture use 和合本 (Chinese Union Version) wording. Always write God as 「神」 (never 「上帝」) and use 祂 for God/Jesus.
 - "vocab": each item is [form, lemma, pos, ipa, zh]
    - form: the word/phrase EXACTLY as it appears in that sentence's "en" (same spelling/inflection, case-sensitive)
@@ -191,19 +211,19 @@ RAW CAPTION TEXT:
 {raw}
 """
 
-PROMPT_SERMON = """You are preparing an ADVANCED English listening/speaking lesson for Taiwanese Christians from a sermon by Pastor Bill Johnson (Bethel Church, Redding, California).
+PROMPT_SERMON = """You are preparing an {level_word} English listening/speaking lesson for Taiwanese Christians from a sermon by {speaker}.
 Sermon: "{title}"
-This is segment {part} of {parts}{chapter}. Below is the RAW YouTube auto-caption text of this segment only (no punctuation, many recognition errors, fast spontaneous speech).
+This is segment {part} of {parts}{chapter}. Below is the RAW YouTube caption text of this segment only (may lack punctuation and contain recognition errors).
 
 Your job: turn it into clean, learnable sentences, translate, and pick vocabulary.
 """ + COMMON_RULES + """
 Rules:
 1. Keep the speaker's ACTUAL words and order. Add punctuation/capitalization and fix speech-recognition errors (names, scripture words, e.g. "Saidi want" -> "said, \\"I want"). Do NOT paraphrase, summarize, add, or reorder.
-2. Remove only disfluencies: "um/uh", false starts, stutters and immediate repeats ("thanks thanks thanks" -> "Thanks."), and crowd reactions. Keep jokes, asides and stories.
+2. Remove only disfluencies: "um/uh", false starts, stutters and immediate repeats ("thanks thanks thanks" -> "Thanks."), and crowd reactions. Keep jokes, asides and stories. Drop broadcast announcer intros/outros, music, and ministry ads or phone numbers.
 3. The segment may start/end mid-sentence: drop a dangling fragment at the very start or end if it cannot stand alone.
 4. One sentence per line, ideally under 25 words; split run-ons at natural clause boundaries. Quoted speech/scripture uses double quotes.
 5. Chinese should sound like a Taiwanese church interpreter. Use these terms: presence 同在, anointing 恩膏, breakthrough 突破, the Kingdom 神的國/國度, revival 復興, prophetic 先知性的, prophecy 預言, the Holy Spirit 聖靈, covenant 約, glory 榮耀, testimony 見證, worship 敬拜, intercession 代禱, ministry 服事, faith 信心, grace 恩典, counterfeit 仿冒（不要用「贗品」）, spirit of offense 冒犯的靈, discernment 分辨/辨識, destiny 命定, impart 分賜. Segment titles must state the speaker's actual point, not a literal word-by-word rendering.
-6. 0–3 vocab items per sentence for an upper-intermediate (B2–C1) learner. Prefer idioms, phrasal verbs, collocations and sermon expressions over single easy words. Skip proper names.
+6. 0–3 vocab items per sentence for an {vocab_level} learner. Prefer idioms, phrasal verbs, collocations and sermon expressions over single easy words. Skip proper names.
 7. Extra keys:
    - "titleZh": Chinese title of the WHOLE sermon{title_hint}
    - "partTitleZh": a short Chinese title for THIS segment (≤ 14 characters)
@@ -212,6 +232,31 @@ Rules:
 
 Output schema (exactly these keys):
 {{"titleZh": "...", "partTitleZh": "...", "summaryZh": "...", "ref": "...", "lines": [["English sentence.", "中文翻譯。", [["form","lemma","pos","/ipa/","中文"]]], ...]}}
+
+Example of two lines in the expected style:
+{example}
+
+RAW CAPTION TEXT:
+{raw}
+"""
+
+
+PROMPT_SHORT = """You are preparing an English listening/speaking lesson for Taiwanese Christians from a 2–3 minute devotional video.
+Video: "{title}"
+Below is the RAW YouTube caption text (may be ALL CAPS, may lack punctuation).
+
+Your job: turn it into clean, learnable sentences, translate, and pick vocabulary.
+""" + COMMON_RULES + """
+Rules:
+1. Keep the speaker's ACTUAL words and order. Fix punctuation/case only. Do NOT paraphrase, summarize, add, or reorder.
+2. Drop channel intros/outros (e.g. "Our Daily Bread", music, "subscribe" calls). Keep the story, the Bible verse and the reflection.
+3. One sentence per line, ideally under 25 words. Quoted scripture uses double quotes.
+4. Chinese should sound natural to Taiwanese Christians; quoted scripture uses 和合本 wording.
+5. 0–3 vocab items per sentence for an {vocab_level} learner; prefer useful everyday phrases and collocations. Skip proper names.
+6. Extra keys: "titleZh" (Chinese title), "summaryZh" (one Chinese sentence ≤ 40 characters with the takeaway), "ref" (the Bible verse in Chinese book names, e.g. "加拉太書 2:6").
+
+Output schema (exactly these keys):
+{{"titleZh": "...", "summaryZh": "...", "ref": "...", "lines": [["English sentence.", "中文翻譯。", [["form","lemma","pos","/ipa/","中文"]]], ...]}}
 
 Example of two lines in the expected style:
 {example}
@@ -245,7 +290,7 @@ POS = {'n.', 'v.', 'adj.', 'adv.', 'prep.', 'conj.', 'phr.', 'n./adj.', 'pron.',
 
 def validate(draft, vid, se, clip=None):
     errs = []
-    keys = ['titleZh', 'lines'] + (['partTitleZh', 'summaryZh'] if se['segment'] else ['ref'])
+    keys = ['titleZh', 'lines'] + (['partTitleZh', 'summaryZh'] if se['segment'] else se.get('required', []))
     for k in keys:
         if not draft.get(k):
             errs.append(f'缺欄位 {k}')
@@ -300,7 +345,7 @@ def slug(title):
 
 
 def clean_title(title):
-    return re.split(r'\s*[|(]|\s+-\s+(?:Bill Johnson|Best of)', title)[0].strip()
+    return re.split(r'\s*[|(]|\s+[-–]\s+(?:Bill Johnson|Best of|Billy Graham)', title)[0].strip()
 
 
 def next_num(sid):
@@ -308,7 +353,19 @@ def next_num(sid):
     return max(nums, default=0) + 1
 
 
+ZH_FIXES = [('自已', '自己'), ('上帝', '神')]  # agy 常見錯字／用語統一
+
+
+def fix_zh(text):
+    for a, b in ZH_FIXES:
+        text = text.replace(a, b)
+    return text
+
+
 def write_json(path, les, keys):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    les = {k: fix_zh(v) if isinstance(v, str) else v for k, v in les.items()}
+    les['lines'] = [[en, fix_zh(zh), [[*v[:4], fix_zh(v[4])] for v in vocab]] for en, zh, vocab in les['lines']]
     with open(path, 'w') as f:
         f.write('{\n')
         for k in keys:
@@ -350,13 +407,17 @@ def add_simple(vid, se, model):
     meta, info, words = r
     raw = ' '.join(w for _, w in words)
     log(f'  字幕 {len(raw.split())} 字，交給 agy 整理（約 1–3 分鐘）…')
-    draft, stats = run_agy_validated(PROMPT_HEYO.format(title=meta['title'], example=example_lines(), raw=raw), vid, se, model)
+    tpl = PROMPT_SHORT if se.get('prompt') == 'short' else PROMPT_HEYO
+    prompt = tpl.format(title=meta['title'], example=example_lines(), raw=raw, vocab_level=se.get('vocab_level', ''))
+    draft, stats = run_agy_validated(prompt, vid, se, model)
     les = {'id': slug(info['title']), 'videoId': vid, 'title': clean_title(info['title']), 'titleZh': draft['titleZh'],
-           'ref': draft['ref'], 'duration': int(info.get('duration') or 0), 'lines': draft['lines']}
+           'ref': draft.get('ref', ''), 'duration': int(info.get('duration') or 0), 'lines': draft['lines']}
+    if draft.get('summaryZh'):
+        les['summaryZh'] = draft['summaryZh']
     if any(json.load(open(p))['id'] == les['id'] for p in content_files(se['id'])):
         les['id'] += '-' + vid[:4].lower()
     path = os.path.join(ROOT, 'content', se['id'], f'{next_num(se["id"]):02d}-{les["id"]}.json')
-    write_json(path, les, ['id', 'videoId', 'title', 'titleZh', 'ref', 'duration'])
+    write_json(path, les, ['id', 'videoId', 'title', 'titleZh', 'summaryZh', 'ref', 'duration'])
     log(f"  ✓ {len(draft['lines'])} 句、吻合度 {stats['fidelity']:.0%}、覆蓋率 {stats['coverage']:.0%} → {os.path.relpath(path, ROOT)}")
     return 1
 
@@ -395,7 +456,8 @@ def add_sermon(vid, se, model, parts_spec=None, plan_only=False, jobs=2):
         log(f'  {tag}{len(raw.split())} 字交給 agy…')
         hint = f' — use exactly: {title_zh["v"]}' if 'v' in title_zh else ''
         prompt = PROMPT_SERMON.format(title=title, part=k, parts=len(segs), chapter=f' (chapter: "{ch}")' if ch else '',
-                                      title_hint=hint, example=example_lines(), raw=raw)
+                                      title_hint=hint, example=example_lines(), raw=raw, level_word=se['level_word'],
+                                      speaker=se['speaker'], vocab_level=se['vocab_level'])
         draft, stats = run_agy_validated(prompt, vid, se, model, clip, tag)
         title_zh.setdefault('v', draft['titleZh'])
         les = {'id': f'{base}-p{k}', 'videoId': vid, 'title': title, 'titleZh': title_zh['v'],

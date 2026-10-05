@@ -358,8 +358,12 @@ main { max-width: 1180px; margin: 0 auto; padding: 16px 16px 120px; }
 .series-card small { color: var(--ink-3); font-size: 12.5px; font-weight: 700; }
 .series-card[aria-selected="true"] { border-color: var(--brand); }
 .lvl { align-self: flex-start; font-size: 11.5px; font-weight: 900; padding: 1px 8px; border-radius: 999px; margin-bottom: 2px; }
-.lvl-easy { background: var(--good-soft); color: var(--good); }
-.lvl-hard { background: var(--brand-soft); color: var(--brand); }
+/* 難度 1→4：綠、青、黃、橘 */
+.lvl-t1 { background: var(--good-soft); color: var(--good); }
+.lvl-t2 { background: var(--teal-soft); color: var(--teal); }
+.lvl-t3 { background: color-mix(in srgb, var(--sun) 28%, transparent); color: #9A6700; }
+.lvl-t4 { background: var(--brand-soft); color: var(--brand); }
+@media (prefers-color-scheme: dark) { .lvl-t3 { color: var(--sun); } }
 .series-blurb { color: var(--ink-2); font-size: 14px; margin: 0 0 16px; }
 .card .sum { color: var(--ink-2); font-size: 13px; line-height: 1.45; margin-top: 4px; }
 .lesson-head .part-title { color: var(--brand); font-weight: 900; font-size: 17px; margin: 2px 0 0; }

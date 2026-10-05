@@ -8,7 +8,34 @@
     "credit": "Saddleback Kids",
     "creditUrl": "https://www.youtube.com/@SaddlebackKids",
     "order": "bible",
-    "minFidelity": 0.90,
+    "minFidelity": 0.9,
+    "minCoverage": 0.85,
+    "tier": 1
+  },
+  {
+    "id": "odb",
+    "title": "Our Daily Bread 每日靈修",
+    "titleEn": "Our Daily Bread Video Devotional",
+    "level": "初級",
+    "tier": 2,
+    "blurb": "2–3 分鐘的成人靈修短片：一個生活故事＋一節經文，用字日常、句子完整。",
+    "credit": "Our Daily Bread Ministries",
+    "creditUrl": "https://www.youtube.com/@ourdailybread",
+    "order": "manual",
+    "minFidelity": 0.9,
+    "minCoverage": 0.85
+  },
+  {
+    "id": "billy-graham",
+    "title": "Billy Graham 經典講道",
+    "titleEn": "Billy Graham Classic Sermons",
+    "level": "中級",
+    "tier": 3,
+    "blurb": "葛理翰牧師的佈道會講道：用字簡單、句子短、講得慢而清楚，是聽懂真實講道的第一步。",
+    "credit": "Billy Graham Evangelistic Association",
+    "creditUrl": "https://www.youtube.com/@billygraham",
+    "order": "manual",
+    "minFidelity": 0.9,
     "minCoverage": 0.85
   },
   {
@@ -22,6 +49,7 @@
     "channel": "https://www.youtube.com/channel/UCspy9Ay2Z9VI__qS7Fdbs6Q/videos",
     "order": "manual",
     "minFidelity": 0.85,
-    "minCoverage": 0.80
+    "minCoverage": 0.8,
+    "tier": 4
   }
 ]

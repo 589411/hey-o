@@ -17,10 +17,12 @@
 
 - 2026-10-05：新增第二系列「Bill Johnson 講道」（進階）。content 改成 `content/<series>/` + `content/series.json`；講道依 YouTube 章節自動切 3–6 分鐘一段（clipStart/clipEnd 只播該段）。agy 做了 13 課（完整講道「每天如何聆聽神的聲音」9 段＋短片「憂慮如何扼殺神的應許」＋「容易被冒犯的危險」3 段），全部吻合度 97–99%。現共 2 系列 27 課 1038 句。修了 bump_sw 會清空 index.html 的 bug（未上線前抓到）；css/js 加 ?v= 與 SW 同步升版。
 
+- 2026-10-05：依實測語速／用字難度補兩個中間級，成為四級：入門 Hey-O → 初級 Our Daily Bread 每日靈修（10 課）→ 中級 Billy Graham 經典講道（2 場 13 段）→ 進階 Bill Johnson。人工字幕（只有行時間）改成依字長分配逐字時間；agy 輸出自動修「自已→自己、上帝→神」。agy 首稿兩次把講道最後一段漏一大半，皆被覆蓋率檢查擋下、重試後 98–99%。現共 4 系列 50 課 1979 句。lab 卡片文案已更新（L3、M09）。
+
 ## 卡在哪
 - 「Stories from Genesis」(K6IA0Uj1JdY) 抓字幕一直 429，暫未收錄（內容與亞當夏娃/挪亞重疊）。
 - 影片播放在自動化瀏覽器（背景視窗）無法實測；需在手機/桌機實際點播驗證：句子高亮跟隨、單句自動停、循環。
 
 ## 下一個具體動作
 1. 開 https://hey-o.launchdock.app 實測 iPhone Safari：點句播放、跟讀語音評分（麥克風權限）、加入主畫面。
-2. 繼續擴充：`python3 tools/add_lesson.py --series <heyo|bill-johnson> --list` 挑還沒收錄的單集 → `add_lesson.py --series … <id…> --keep-going`（講道先 `--plan` 看切段） → 抽查翻譯 → push。yt-dlp 目前在 scratchpad venv，正式用請 `brew install yt-dlp`。
+2. 繼續擴充：`python3 tools/add_lesson.py --series <heyo|odb|billy-graham|bill-johnson> --list` 挑還沒收錄的單集 → `add_lesson.py --series … <id…> --keep-going`（講道先 `--plan` 看切段） → 抽查翻譯 → push。yt-dlp 目前在 scratchpad venv，正式用請 `brew install yt-dlp`。

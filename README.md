@@ -1,7 +1,9 @@
 # Hey-O! 英聽口說
 
-用 YouTube 影片練英聽與口說的 PWA。目前兩個系列：
+用 YouTube 影片練英聽與口說的 PWA。四個系列由淺入深：
 - **Hey-O! 聖經動畫**（入門）：Saddleback Kids《Hey-O! Stories of the Bible》，一支 2–4 分鐘 = 一課
+- **Our Daily Bread 每日靈修**（初級）：Our Daily Bread Ministries 的 2–3 分鐘靈修短片，一支 = 一課
+- **Billy Graham 經典講道**（中級）：BGEA《Billy Graham Classic Sermon》，依章節併成 3–6 分鐘一段
 - **Bill Johnson 講道**（進階）：Bill Johnson Teaching (Official) 的主日講道，依 YouTube 章節切成 3–6 分鐘一段 = 一課
 線上：https://hey-o.launchdock.app
 
@@ -32,6 +34,8 @@ docs/gemini-draft/                     ← 最初 Gemini 草稿（僅供參考�
 ```
 python3 tools/add_lesson.py --series heyo --list                       # 還沒收錄的單集（✓ = 已收錄）
 python3 tools/add_lesson.py --series heyo <videoId…> --keep-going
+python3 tools/add_lesson.py --series odb <videoId…>
+python3 tools/add_lesson.py --series billy-graham <videoId> --plan
 python3 tools/add_lesson.py --series bill-johnson --list
 python3 tools/add_lesson.py --series bill-johnson <videoId> --plan     # 先看切段計畫
 python3 tools/add_lesson.py --series bill-johnson <videoId> --parts 1-3 --jobs 2

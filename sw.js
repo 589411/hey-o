@@ -1,8 +1,8 @@
 // Hey-O! 英聽口說 Service Worker — 同源檔案 network-first（更新即時生效、離線也能開）
 // 新增需離線的檔案：加進 SHELL 並把 CACHE 升版
-const CACHE = 'hey-o-v8';
+const CACHE = 'hey-o-v11';
 const SHELL = [
-  './', './index.html', './css/app.css?v=8', './js/app.js?v=8', './data/lessons.json', './manifest.webmanifest',
+  './', './index.html', './css/app.css?v=11', './js/app.js?v=11', './data/lessons.json', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png'
 ];
 
