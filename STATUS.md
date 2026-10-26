@@ -1,6 +1,6 @@
 # STATUS — hey-o
 
-**更新：2026-10-05**
+**更新：2026-10-26**
 
 ## 現況
 - v1 完成：9 課（301 句、真實字幕對齊時間軸）、聽讀/跟讀/聽寫/單字四模式、生字本閃卡、PWA。
@@ -21,12 +21,13 @@
 
 - 2026-10-26：Joseph 要求補「最新完整講道」。選了 BKdqlYeUu28《Your Significance and Purpose Within the Body of Christ》（2026-10-23，45 分，切 13 課）。原 3 支 Bill Johnson 影片已核對 YouTube 時長，皆完整（短片本來就只有 7 分／11 分）；短片不延伸。agy 預設模型 `Gemini 3.1 Pro (High)` 已從清單消失，需 `--model "Gemini 3.8 Flash (High)"`。做完 p01–p05、p13（吻合度 99–100%），p06–p12 因 agy 額度 429 失敗。這 6 課檔案**未 commit**（中間缺段，上線會斷號）。
 
+- 2026-10-26（續）：改用 codex 補完 BKdqlYeUu28 的 p06–p12，13 段齊全（吻合度 98–100%），現共 4 系列 63 課 2539 句，已 push。add_lesson.py 新增 `LLM=codex` 後端（`codex exec`，需 stdin=DEVNULL 否則會卡住）；`--parts` 可補做缺段（沿用既有課號與標題）。codex 單字驗證（單字須原樣出現在句中）常需重試 1–2 次。
+
 ## 卡在哪
-- agy 額度用完（429，約 2026-10-31 重置）。`content/bill-johnson/04-your-significance-*-p01~05,p13.json` 與 `tools/timings/BKdqlYeUu28.json` 在工作目錄未提交。
 - 「Stories from Genesis」(K6IA0Uj1JdY) 抓字幕一直 429，暫未收錄（內容與亞當夏娃/挪亞重疊）。
 - 影片播放在自動化瀏覽器（背景視窗）無法實測；需在手機/桌機實際點播驗證：句子高亮跟隨、單句自動停、循環。
+- 新增的 p06–p12 翻譯只抽查過少數句，未逐句審。
 
 ## 下一個具體動作
-0. agy 額度重置後：`python3 tools/add_lesson.py --series bill-johnson --model "Gemini 3.8 Flash (High)" --parts 6-12 BKdqlYeUu28`，抽查翻譯後一次 commit 全部 13 課 + push。（並把 add_lesson.py 預設模型改成可用的。）
-1. 開 https://hey-o.launchdock.app 實測 iPhone Safari：點句播放、跟讀語音評分（麥克風權限）、加入主畫面。
-2. 繼續擴充：`python3 tools/add_lesson.py --series <heyo|odb|billy-graham|bill-johnson> --list` 挑還沒收錄的單集 → `add_lesson.py --series … <id…> --keep-going`（講道先 `--plan` 看切段） → 抽查翻譯 → push。yt-dlp 目前在 scratchpad venv，正式用請 `brew install yt-dlp`。
+1. 開 https://hey-o.launchdock.app 實測 iPhone Safari：點句播放、跟讀語音評分（麥克風權限）、加入主畫面；順便抽看 Bill Johnson 第 4 篇各段。
+2. 繼續擴充：`LLM=codex python3 tools/add_lesson.py --series <heyo|odb|billy-graham|bill-johnson> --list` 挑還沒收錄的單集 → `add_lesson.py --series … <id…> --keep-going`（講道先 `--plan` 看切段） → 抽查翻譯 → push。yt-dlp 目前在 scratchpad venv，正式用請 `brew install yt-dlp`。

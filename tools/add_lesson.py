@@ -16,7 +16,7 @@ agy 的輸出要通過 fidelity / coverage 檢查（門檻在 content/series.jso
 
 需要：yt-dlp（brew install yt-dlp，或用環境變數 YTDLP 指向）、agy（Antigravity CLI，已登入）。
 """
-import argparse, glob, json, math, os, re, subprocess, sys, time, urllib.request, urllib.parse
+import glob, argparse, glob, json, math, os, re, subprocess, sys, time, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -273,10 +273,13 @@ def example_lines():
 
 def call_agy(prompt, model, timeout_min=10):
     os.makedirs(CACHE, exist_ok=True)
-    cmd = [AGY, '-p', prompt, '--print-timeout', f'{timeout_min}m', '--sandbox']
-    if model:
-        cmd += ['--model', model]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_min * 60 + 60, cwd=CACHE)
+    if os.environ.get('LLM') == 'codex':  # LLM=codex：改用 codex exec（model 參數忽略，用 codex 設定檔的模型）
+        cmd = ['codex', 'exec', '--sandbox', 'read-only', '--skip-git-repo-check', '-C', CACHE, prompt]
+    else:
+        cmd = [AGY, '-p', prompt, '--print-timeout', f'{timeout_min}m', '--sandbox']
+        if model:
+            cmd += ['--model', model]
+    r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=timeout_min * 60 + 60, cwd=CACHE)
     out = r.stdout.strip()
     m = re.search(r'\{.*\}', out, re.S)  # 容忍前後雜訊或 ``` 圍欄
     if not m:
@@ -385,8 +388,8 @@ def bump_sw():
     open(p, 'w').write(re.sub(r"\?v=\d+", f'?v={n}', html))
 
 
-def prepare(vid, se):
-    if vid in existing_ids(se['id']):
+def prepare(vid, se, force=False):
+    if not force and vid in existing_ids(se['id']):
         log('  已收錄，跳過'); return None
     meta = oembed(vid)
     if not meta:
@@ -433,7 +436,7 @@ def parse_parts(spec, n):
 
 
 def add_sermon(vid, se, model, parts_spec=None, plan_only=False, jobs=2):
-    r = prepare(vid, se)
+    r = prepare(vid, se, force=bool(parts_spec))  # 指定 --parts＝補做缺段，不因已有部分課而跳過
     if not r:
         return 0
     meta, info, words = r
@@ -447,6 +450,10 @@ def add_sermon(vid, se, model, parts_spec=None, plan_only=False, jobs=2):
     todo = parse_parts(parts_spec, len(segs))
     num, base = next_num(se['id']), slug(info['title'])
     title_zh = {}
+    prev = sorted(glob.glob(os.path.join(ROOT, 'content', se['id'], f'*-{base}-p*.json')))
+    if prev:  # 補做缺段：沿用既有課號與中文標題
+        num = int(os.path.basename(prev[0]).split('-')[0])
+        title_zh['v'] = json.load(open(prev[0]))['titleZh']
 
     def one(k):
         a, b, ch = segs[k - 1]
